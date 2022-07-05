@@ -10,7 +10,7 @@ share_config = {
     'mode': 'training',
     'dataset': 'avenue',
     'img_size': (64, 64),
-    'data_root': '/'
+    'data_root': 'data/'
 }
 
 
