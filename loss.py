@@ -1,38 +1,40 @@
-from matplotlib.pyplot import cla
 import torch
 import torch.nn as nn
 import torch.nn.functional
 import numpy as np
 
 
-class aot_loss(nn.Module):
+class aotloss(nn.Module):
     def __init__(self):
         super().__init__()
 
     def forward(self, aot_output, target):
         loss = nn.CrossEntropyLoss()
-        return loss(aot_output, target)
+        return loss(target, aot_output)
 
 
-class mi_loss(nn.Module):
+class miloss(nn.Module):
     def __init__(self):
         super().__init__()
 
     def forward(self, mi_output, target):
-        return nn.CrossEntropyLoss(mi_output, target)
+        loss = nn.CrossEntropyLoss()
+        return loss(target, mi_output)
 
     
-class mbp_loss(nn.Module):
+class mbploss(nn.Module):
     def __init__(self):
         super().__init__()
 
     def forward(self, mbp_output, target):
-        return torch.mean(torch.abs(target - mbp_output))
+        loss = nn.L1Loss(reduction='mean')
+        return loss(target, mbp_output)
 
 
-class md_loss(nn.Module):
+class mdloss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, md_output_y, target_y, md_output_r, target_r):
-        return -1
+    def forward(self, md_merged_output, target_merged):
+        loss = nn.L1Loss(reduction='mean')
+        return loss(md_merged_output, target_merged)
