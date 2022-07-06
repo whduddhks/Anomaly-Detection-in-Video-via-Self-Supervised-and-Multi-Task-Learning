@@ -10,7 +10,7 @@ share_config = {
     'mode': 'training',
     'dataset': 'avenue',
     'img_size': (64, 64),
-    'data_root': 'data/'
+    'data_root': 'Data/'
 }
 
 
@@ -33,8 +33,9 @@ def update_config(args=None, mode=None):
 
     if mode == 'train':
         share_config['batch_size'] = args.batch_size
-        share_config['train_data'] = share_config['data_root'] + args.dataset + '/training/'
-        share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
+        share_config['train_data'] = share_config['data_root'] + args.dataset + '/training'
+        share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing'
+        share_config['lr'] = 0.001
         share_config['level'] = args.level
         share_config['width'] = args.width
         share_config['depth'] = args.depth
