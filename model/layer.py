@@ -3,8 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class aothead(nn.Module):
-    def __init__(self, in_channel):
+    def __init__(self, width):
         super().__init__()
+        in_channel = 32 if width == 'narrow' else 64
         self.aot = nn.Sequential(
             nn.Conv2d(in_channel, 32, kernel_size=(3, 3), padding='same', stride=1),
             nn.MaxPool2d(2),
@@ -19,8 +20,9 @@ class aothead(nn.Module):
 
 
 class mihead(nn.Module):
-    def __init__(self, in_channel):
+    def __init__(self, width):
         super().__init__()
+        in_channel = 32 if width == 'narrow' else 64
         self.mi = nn.Sequential(
             nn.Conv2d(in_channel, 32, kernel_size=(3, 3), padding='same', stride=1),
             nn.MaxPool2d(2),
@@ -92,8 +94,9 @@ class mbphead(nn.Module):
 
 
 class mdhead(nn.Module):
-    def __init__(self, in_channel):
+    def __init__(self, width):
         super().__init__()
+        in_channel = 32 if width == 'narrow' else 64
         self.md = nn.Sequential(
             nn.Conv2d(in_channel, 32, kernel_size=(3, 3), padding='same', stride=1),
             nn.MaxPool2d(2),
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     r_2 = m(rand, 'deep')
     r_3 = p(rand, 'deep')
     r_4 = t(rand, 'deep')
-    print(r_1)
-    print(r_2)
+    print(r_1.shape)
+    print(r_2.shape)
     print(r_3.shape)
     print(r_4[0].shape, r_4[1].shape)
