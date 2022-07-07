@@ -9,11 +9,14 @@ from torch.utils.data import Dataset
 from multiprocessing import Process, freeze_support
 
 
+# frame 불러오기
+def np_load_frame(filename):
+    img = cv2.imread(filename)
+    return img
+
 class train_dataset(Dataset):
     
     def __init__(self, cfg):
-        self.clip_length = 5
-
         # list마다 각 folder의 이미지들이 넣어져있음
         self.videos = []
         self.all_frames = []
@@ -24,35 +27,49 @@ class train_dataset(Dataset):
             all_imgs.sort()
             self.videos.append(all_imgs)
 
-            frames = list(range(8, len(all_imgs) - 7))
+            frames = list(range(3, len(all_imgs) - 2))
             random.shuffle(frames)
             self.all_frames.append(frames)
 
     def __len__(self):  
         return len(self.videos)
 
-    def __getitem__(self, indice):
-        folder = self.videos[indice]
-        start = self.all_frames[indice][-1]
+    def __getitem__(self, idx):
+        folder = self.videos[idx]
+        start = self.all_frames[idx][-1]
+        i_path = folder[start]
 
         video_clip = []
-        for i in range(start-2, start + 3):
-            video_clip.append(cv2.imread(folder[i]))
-        
-        random_clip = []
-        random_seqs = []
-        for i in range(4):
-            random_seqs.append(random.randrange(1, 5))
-        
-        print(random_seqs)
+        for i in range(start-3, start + 4):
+            video_clip.append(np_load_frame(folder[i]))
 
-        random_clip.append(cv2.imread(folder[start-(random_seqs[0]+random_seqs[1])]))
-        random_clip.append(cv2.imread(folder[start-(random_seqs[1])]))
-        random_clip.append(cv2.imread(folder[start]))
-        random_clip.append(cv2.imread(folder[i+(random_seqs[2])]))
-        random_clip.append(cv2.imread(folder[i+(random_seqs[2]+random_seqs[3])]))
-
-        video_clip = torch.from_numpy(np.array(video_clip))
-        random_clip = torch.from_numpy(np.array(random_clip))
+        random_clip = [np_load_frame(folder[start])]
         
-        return indice, video_clip, random_clip
+        for i in range(3):
+            temp = start
+            f = random.randrange(1, 5)
+            if temp - (2 - i) - f >= 0:
+                random_clip.append(np_load_frame(folder[temp - f]))
+                temp -= f
+            else:
+                random_clip.append(np_load_frame(folder[temp - 1]))
+                temp -= 1
+        
+        random_clip.reverse()
+
+        for i in range(3):
+            temp = start
+            f = random.randrange(1, 5)
+            if temp + (2 - i) + f <= len(folder):
+                random_clip.append(np_load_frame(folder[temp + f]))
+                temp += f
+            else:
+                random_clip.append(np_load_frame(folder[temp + 1]))
+                temp += 1
+
+        video_clip = np.array(video_clip)
+        random_clip = np.array(random_clip)
+        
+        return idx, video_clip, random_clip, i_path
+
+
