@@ -45,8 +45,8 @@ class train_dataset(Dataset):
 
         random_clip = [np_load_frame(folder[start])]
         
+        temp = start
         for i in range(3):
-            temp = start
             f = random.randrange(1, 5)
             if temp - (2 - i) - f >= 0:
                 random_clip.append(np_load_frame(folder[temp - f]))
@@ -57,8 +57,8 @@ class train_dataset(Dataset):
         
         random_clip.reverse()
 
+        temp = start
         for i in range(3):
-            temp = start
             f = random.randrange(1, 5)
             if temp + (2 - i) + f <= len(folder):
                 random_clip.append(np_load_frame(folder[temp + f]))
