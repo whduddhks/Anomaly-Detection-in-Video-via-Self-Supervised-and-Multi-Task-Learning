@@ -10,7 +10,7 @@ class aotloss(nn.Module):
 
     def forward(self, aot_output, target):
         loss = nn.CrossEntropyLoss()
-        return loss(target, aot_output)
+        return loss(aot_output, target)
 
 
 class miloss(nn.Module):
@@ -19,7 +19,7 @@ class miloss(nn.Module):
 
     def forward(self, mi_output, target):
         loss = nn.CrossEntropyLoss()
-        return loss(target, mi_output)
+        return loss(mi_output, target)
 
     
 class mbploss(nn.Module):
@@ -28,7 +28,7 @@ class mbploss(nn.Module):
 
     def forward(self, mbp_output, target):
         loss = nn.L1Loss(reduction='mean')
-        return loss(target, mbp_output)
+        return loss(mbp_output, target)
 
 
 class mdloss(nn.Module):
