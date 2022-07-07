@@ -2,13 +2,23 @@ import argparse
 import Dataset
 import torch
 import cv2
+import os
+import sys
+from pathlib import Path
 from config import update_config
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from model.conv3D import conv3D
 from model.layer import aothead, mihead, mbphead, mdhead
-from utils import *
+from conv_utils import *
 from loss import *
+from yolov3.detect_loc import run
+
+FILE = Path(__file__).resolve()
+ROOT = FILE.parents[0]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # add ROOT to PATH
+ROOT = Path(os.path.relpath(ROOT, Path.cwd()))
 
 
 parser = argparse.ArgumentParser(description='baseline')
@@ -68,9 +78,10 @@ md_loss =mdloss().cuda()
 
 # Yolo v3 model 불러오기
 if train_cfg.level == 'object':
-    detection_model = torch.hub.load('ultralytics/yolov3', 'yolov3')
-    detection_model.conf = 0.5 if train_cfg.dataset == 'Ped2' else 0.8
-    md_lambda = 0.5 if train_cfg.dataset == 'Ped2' else 0.5
+    conf_thres = 0.5 if train_cfg.dataset == 'ped2' else 0.8
+    md_lambda = 0.5 if train_cfg.dataset == 'ped2' else 0.5
+
+# dataset 나누기
 
 # Dataloader 정의
 train_dataset = Dataset.train_dataset(train_cfg)
@@ -90,15 +101,43 @@ md_head = md_head.train()
 try:
     step = start_iter
     while training:
-        for indice, video_clips, random_clips in train_dataloader:
+        for indice, video_clips, random_clips, path_list in train_dataloader:
+            
+            pred, yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=path_list[0], imgsz=video_clips.shape[2:4], conf_thres=conf_thres)
+                
+            video_input_crop = img_crop(video_clips[0], pred[0])
+            random_input_crop = img_crop(random_clips[0], pred[0])
+            
+            video_input_crop = torch.from_numpy(np.array(video_input_crop))
+            random_input_crop = torch.from_numpy(np.array(random_input_crop))
+            
+            aot_input = torch.cat([video_input_crop.clone().detach().requires_grad_(True), torch.flip(video_input_crop.clone().detach().requires_grad_(True), [0, 1])], 0)
+            aot_target = torch.cat([torch.zeros([video_input_crop.shape[0]]), torch.ones([video_input_crop.shape[0]])], 0)
+            
+            mi_input = torch.cat([video_input_crop.clone().detach().requires_grad_(True), random_input_crop.clone().detach().requires_grad_(True)], 0)
+            mi_target = torch.cat([torch.zeros([video_input_crop.shape[0]]), torch.ones([video_input_crop.shape[0]])], 0)
+            
+            mbp_input = torch.cat([video_input_crop[:, :3, :].clone().detach().requires_grad_(True), video_input_crop[:, 4:, :].clone().detach().requires_grad_(True)], 1)
+            mbp_target = video_input_crop[:, 3, :].clone().detach().requires_grad_(True).unsqueeze(dim=1)
+            
+            md_input = video_input_crop[:, 3, :].clone().detach().requires_grad_(True).unsqueeze(dim=1)
+            
+            print(video_input_crop.shape)
+            print(aot_input.shape)
+            print(aot_target.shape)
+            print(mi_input.shape)
+            print(mi_target.shape)
+            print(mbp_input.shape)
+            print(mbp_target.shape)
+            print(md_input.shape)
+            
+            
             
 
-            object_detect_results = detection_model(video_clips[2][0])
+            break
             
-            for pos_list in object_detect_results.xyxy[0]:
-                pos_list = pos_list.int()
-                read_img = cv2.imread(video_clips[2][0])
-                crop_img = cv2.resize(read_img[pos_list[1]:pos_list[3], pos_list[0]:pos_list[2]], (64, 64))
 
+        break
 
-except:
+except KeyboardInterrupt:
+    print('a')
