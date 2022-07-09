@@ -79,9 +79,7 @@ md_loss =mdloss().cuda()
 # Yolo v3 model 불러오기
 if train_cfg.level == 'object':
     conf_thres = 0.5 if train_cfg.dataset == 'ped2' else 0.8
-    md_lambda = 0.5 if train_cfg.dataset == 'ped2' else 0.5
-
-# dataset 나누기
+    md_lambda = 0.5 if train_cfg.dataset == 'ped2' else 0.2
 
 # Dataloader 정의
 train_dataset = Dataset.train_dataset(train_cfg)
@@ -112,24 +110,47 @@ try:
             random_input_crop = torch.from_numpy(np.array(random_input_crop))
             
             aot_input = torch.cat([video_input_crop.clone().detach().requires_grad_(True), torch.flip(video_input_crop.clone().detach().requires_grad_(True), [0, 1])], 0)
-            aot_target = torch.cat([torch.zeros([video_input_crop.shape[0]]), torch.ones([video_input_crop.shape[0]])], 0)
+            aot_shape = aot_input.shape
+            aot_input = aot_input.reshape(aot_shape[0], -1, aot_shape[1], aot_shape[2], aot_shape[3]).cuda()
+            aot_target = torch.cat([torch.zeros([video_input_crop.shape[0]]), torch.ones([video_input_crop.shape[0]])], 0).long().cuda()
             
             mi_input = torch.cat([video_input_crop.clone().detach().requires_grad_(True), random_input_crop.clone().detach().requires_grad_(True)], 0)
-            mi_target = torch.cat([torch.zeros([video_input_crop.shape[0]]), torch.ones([video_input_crop.shape[0]])], 0)
+            mi_shape = mi_input.shape
+            mi_input = mi_input.reshape(mi_shape[0], -1, mi_shape[1], mi_shape[2], mi_shape[3]).cuda()
+            mi_target = torch.cat([torch.zeros([video_input_crop.shape[0]]), torch.ones([video_input_crop.shape[0]])], 0).long().cuda()
             
             mbp_input = torch.cat([video_input_crop[:, :3, :].clone().detach().requires_grad_(True), video_input_crop[:, 4:, :].clone().detach().requires_grad_(True)], 1)
-            mbp_target = video_input_crop[:, 3, :].clone().detach().requires_grad_(True).unsqueeze(dim=1)
+            mbp_shape = mbp_input.shape
+            mbp_input = mbp_input.reshape(mbp_shape[0], -1, mbp_shape[1], mbp_shape[2], mbp_shape[3]).cuda()
+            mbp_target = video_input_crop[:, 3, :].clone().detach().requires_grad_(True)
+            mbp_target_shape =  mbp_target.shape
+            mbp_target = mbp_target.reshape(mbp_target_shape[0], -1, mbp_target_shape[1],mbp_target_shape[2]).cuda()
             
             md_input = video_input_crop[:, 3, :].clone().detach().requires_grad_(True).unsqueeze(dim=1)
+            md_shape = md_input.shape
+            md_input = md_input.reshape(md_shape[0], -1, md_shape[1], md_shape[2], md_shape[3]).cuda()
             
-            print(video_input_crop.shape)
-            print(aot_input.shape)
-            print(aot_target.shape)
-            print(mi_input.shape)
-            print(mi_target.shape)
-            print(mbp_input.shape)
-            print(mbp_target.shape)
-            print(md_input.shape)
+            aot_shared = shared_conv(aot_input, train_cfg.depth)
+            mi_shared = shared_conv(mi_input, train_cfg.depth)
+            mbp_shared = shared_conv(mbp_input, train_cfg.depth)
+            md_shared = shared_conv(md_input, train_cfg.depth)
+            
+            
+            aot_shared = aot_shared.squeeze()
+            mi_shared = mi_shared.squeeze()
+            mbp_shared = mbp_shared.squeeze()
+            md_shared = md_shared.squeeze()
+
+            aot_output = aot_head(aot_shared, train_cfg.depth)
+            mi_output = mi_head(mi_shared, train_cfg.depth)
+            mbp_output = mbp_head(mbp_shared, train_cfg.depth)
+            md_output_res, md_output_yolo = md_head(md_shared, train_cfg.depth)
+            
+
+            aot_l = aot_loss(aot_output, aot_target)
+            mi_l = mi_loss(mi_output, mi_target)
+            mbp_l = mbp_loss(mbp_output, mbp_target)
+            # md_l = aot_loss(md_output_res, md_output_yolo, yolo_cls_prob)
             
             
             
