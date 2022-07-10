@@ -46,3 +46,15 @@ class mdloss(nn.Module):
         md_merged_output = torch.cat((md_yolo, md_res), 1)
         target_merged = torch.cat((target_yolo, target_res), 1)
         return loss(md_merged_output, target_merged)
+
+
+class val_mdloss(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(md_yolo, target_yolo):
+        softmax = nn.Softmax(dim=1)
+        loss = nn.L1Loss(reduction='mean')
+        md_yolo = softmax(md_yolo)
+        target_yolo = softmax(target_yolo)
+        return loss(md_yolo, target_yolo)
