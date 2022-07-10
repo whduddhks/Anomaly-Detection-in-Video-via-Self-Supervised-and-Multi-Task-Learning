@@ -79,7 +79,7 @@ class train_dataset(Dataset):
 
 class val_dataset(Dataset):
     
-    def __init__(self, cfg, video_folder):
+    def __init__(self, video_folder):
         self.imgs = glob.glob(video_folder + '/*.jpg')
         self.imgs.sort()
         self.img_idx = range(3, len(self.imgs)-3)
@@ -93,5 +93,7 @@ class val_dataset(Dataset):
         for i in range(7):
             video_clips.append(self.imgs[start + i])
         
+        i_path = self.imgs[self.img_idx[idx]]
+        
         video_clips = np.array(video_clips)
-        return video_clips
+        return video_clips, i_path
