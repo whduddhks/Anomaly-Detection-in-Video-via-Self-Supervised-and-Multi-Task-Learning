@@ -1,4 +1,4 @@
-# YOLOv3 by Ultralytics, GPL-3.0 license
+# YOLOv3 ?? by Ultralytics, GPL-3.0 license
 
 import argparse
 import os
@@ -92,6 +92,9 @@ def run(weights=ROOT / 'yolov3.pt',  # model.pt path(s)
         # NMS
         pred, cls_prob = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
         
+        if pred == -1:
+          return -1, -1
+        
         tmp_coord = []
 
         for i, det in enumerate(pred):
@@ -107,3 +110,12 @@ def run(weights=ROOT / 'yolov3.pt',  # model.pt path(s)
         output_coord.append(tmp_coord)
 
     return output_coord, cls_prob
+
+
+if __name__ == "__main__":
+    path = '../Data/avenue/training/frames/13/101.jpg'
+    a = cv2.imread(path)
+    size = a.shape[:2]
+    pred, cls_prob = run(weights=ROOT / 'yolov3.pt', source=path, imgsz=size, conf_thres=0.8)
+    
+    print(pred)
