@@ -35,10 +35,10 @@ class train_dataset(Dataset):
             self.all_frames_training.append(frames)
         
     def __len__(self):  
-        return len(self.videos)
+        return len(self.training_videos)
 
     def __getitem__(self, idx):
-        folder = self.videos[idx]
+        folder = self.training_videos[idx]
         start = self.all_frames_training[idx][-1]
         i_path = folder[start]
 
@@ -63,7 +63,7 @@ class train_dataset(Dataset):
         temp = start
         for i in range(3):
             f = random.randrange(1, 5)
-            if temp + (2 - i) + f <= len(folder):
+            if temp + (2 - i) + f <= len(folder) - 1:
                 random_clip.append(np_load_frame(folder[temp + f]))
                 temp += f
             else:
@@ -96,4 +96,4 @@ class val_dataset(Dataset):
         i_path = self.imgs[self.img_idx[idx]]
         
         video_clips = np.array(video_clips)
-        return video_clips, i_path
+        return idx, video_clips, i_path
