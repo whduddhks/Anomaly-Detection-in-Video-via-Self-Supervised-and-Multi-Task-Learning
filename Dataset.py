@@ -95,5 +95,5 @@ class val_dataset(Dataset):
         
         i_path = self.imgs[self.img_idx[idx]]
         
-        video_clips = np.array(video_clips)
-        return idx, video_clips, i_path
+        video_clips = torch.from_numpy(np.array(video_clips))
+        return video_clips, i_path
