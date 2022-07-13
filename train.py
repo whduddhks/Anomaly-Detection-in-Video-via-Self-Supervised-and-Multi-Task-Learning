@@ -17,7 +17,7 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
 from model.conv3D import conv3D
-from model.layer import aothead, mihead, mbphead, mdhead, val_mdloss
+from model.layer import aothead, mihead, mbphead, mdhead
 from yolov3.detect_loc import run
 from torchvision.models import resnet50, ResNet50_Weights
 
@@ -83,6 +83,7 @@ aot_loss = aotloss().cuda()
 mi_loss = miloss().cuda()
 mbp_loss = mbploss().cuda()
 md_loss =mdloss().cuda()
+val_mdloss = valmdloss().cuda()
 
 # Yolo v3 model 불러오기
 if train_cfg.level == 'object':
@@ -119,14 +120,16 @@ try:
     step = start_iter
     while training:
         for indice, video_clips, random_clips, path_list in train_dataloader:
-
+            
             for index in indice:
                 train_dataset.all_frames_training[index].pop()
                 if len(train_dataset.all_frames_training[index]) == 0:
-                    train_dataset.all_frames_training[index] = list(range(3, len(train_dataset.videos[index]) - 3))
+                    train_dataset.all_frames_training[index] = list(range(3, len(train_dataset.training_videos[index]) - 3))
                     random.shuffle(train_dataset.all_frames_training[index])
-            
+                    
             pred, yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=path_list[0], imgsz=video_clips.shape[2:4], conf_thres=conf_thres)
+            if pred == -1:
+                continue
                 
             video_input_crop = img_crop(video_clips[0], pred[0])
             random_input_crop = img_crop(random_clips[0], pred[0])
@@ -212,7 +215,7 @@ try:
                     lr_mbp = optimizer_mbp.param_groups[0]['lr']
                     lr_md = optimizer_md.param_groups[0]['lr']
 
-                    print(f"{step} | aot_l: {aot_l:.3f} | mi_l: {mi_l:.3f} | mbp_l: {mbp_l:.3f} | md_l: {md_l:.3f} | total: {total_loss:.3f}"
+                    print(f"{step} | aot_l: {aot_l:.3f} | mi_l: {mi_l:.3f} | mbp_l: {mbp_l:.3f} | md_l: {md_l:.3f} | total: {total_loss:.3f} |"
                             f"iter: {iter_t:.3f}s | ETA: {eta} | lr_shared: {lr_shared} | lr_aot: {lr_aot} | lr_mi: {lr_mi} | lr_mbp: {lr_mbp} | lr_md: {lr_md}")
 
                 if step % train_cfg.save_interval == 0:
@@ -247,10 +250,14 @@ try:
                         for i, folder in enumerate(val_dataset):
                             val_data = Dataset.val_dataset(folder)
 
-                            for j, clip, i_path in val_data:
-                                pred, val_yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=i_path[0], imgsz=clip.shape[2:4], conf_thres=conf_thres)
+                            for j, (clip, i_path) in val_data:
+                                
+                                pred, val_yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=i_path, imgsz=clip.shape[2:4], conf_thres=conf_thres)
 
-                                val_input_crop = img_crop(clip[0], pred[0])
+                                if pred == -1:
+                                    continue
+
+                                val_input_crop = img_crop(clip, pred[0])
                                 val_input_crop = torch.from_numpy(np.array(val_input_crop))
 
                                 val_aot_input = val_input_crop.clone().detach()
@@ -277,27 +284,21 @@ try:
                                 val_mbp_shared = shared_conv(val_mbp_input, train_cfg.depth)
                                 val_md_shared = shared_conv(val_md_input, train_cfg.depth)
 
-                                aot_shared = aot_shared.squeeze(dim=2)
-                                mi_shared = mi_shared.squeeze(dim=2)
-                                mbp_shared = mbp_shared.squeeze(dim=2)
-                                md_shared = md_shared.squeeze(dim=2)
+                                val_aot_shared = val_aot_shared.squeeze(dim=2)
+                                val_mi_shared = val_mi_shared.squeeze(dim=2)
+                                val_mbp_shared = val_mbp_shared.squeeze(dim=2)
+                                val_md_shared = val_md_shared.squeeze(dim=2)
 
-                                val_aot_output = aot_head(aot_shared, train_cfg.depth)
-                                val_mi_output = mi_head(mi_shared, train_cfg.depth)
-                                val_mbp_output = mbp_head(mbp_shared, train_cfg.depth)
-                                val_md_output_res, val_md_output_yolo = md_head(md_shared, train_cfg.depth)
+                                val_aot_output = aot_head(val_aot_shared, train_cfg.depth)
+                                val_mi_output = mi_head(val_mi_shared, train_cfg.depth)
+                                val_mbp_output = mbp_head(val_mbp_shared, train_cfg.depth)
+                                val_md_output_res, val_md_output_yolo = md_head(val_md_shared, train_cfg.depth)
 
-                                torch.cuda.synchronize()
-                                end = time.time()
-                                if j > 1:  
-                                    fps = 1 / (end - val_temp)
-                                val_temp = end
-                                print(f'\rDetecting: [{i + 1:02d}] {j + 1}/{len(val_data)}, {fps:.2f} fps.', end='')
-
-                                aot_score += torch.sum(val_aot_input[:, 1])
-                                mi_score += torch.sum(val_mi_input[:, 1])
-                                mbp_score += mbploss(val_mbp_output, val_mbp_target)
+                                aot_score += torch.sum(val_aot_output[:, 1])
+                                mi_score += torch.sum(val_mi_output[:, 1])
+                                mbp_score += mbp_loss(val_mbp_output, val_mbp_target)
                                 md_score += val_mdloss(val_md_output_yolo, val_yolo_cls_prob)
+                                print(aot_score, mi_score, mbp_score, md_score)
 
                     print(f"val | aot score: {aot_score:.3f} | mi score: {mi_score:.3f} | mbp score: {mbp_score:.3f} | md score: {md_score:.3f}")
 
@@ -321,7 +322,6 @@ try:
                                 'opt_mbp': optimizer_mbp.state_dict(),
                                 'opt_md': optimizer_md.state_dict()}
                 torch.save(model_dict, f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{step}.pth')
-                break
 
 except KeyboardInterrupt:
     print(f'\nStop early, model saved: \'latest_{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{step}.pth\'.\n')
