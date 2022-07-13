@@ -91,9 +91,58 @@ class val_dataset(Dataset):
         video_clips = []
         start = self.img_idx[idx] - 3
         for i in range(7):
-            video_clips.append(self.imgs[start + i])
+            video_clips.append(np_load_frame(self.imgs[start + i]))
         
         i_path = self.imgs[self.img_idx[idx]]
         
         video_clips = torch.from_numpy(np.array(video_clips))
         return video_clips, i_path
+
+
+class Label_loader:
+    def __init__(self, cfg, video_folders):
+        assert cfg.dataset in ('ped2', 'avenue', 'shanghaitech'), f'Did not find the related gt for \'{cfg.dataset}\'.'
+        self.cfg = cfg
+        self.name = cfg.dataset
+        self.frame_path = cfg.test_data
+        self.mat_path = f'{cfg.data_root + self.name}/{self.name}.mat'
+        self.video_folders = video_folders
+
+    def __call__(self):
+        if self.name == 'shanghaitech':
+            gt = self.load_shanghaitech()
+        else:
+            gt = self.load_ucsd_avenue()
+        return gt
+
+    def load_ucsd_avenue(self):
+        abnormal_events = scio.loadmat(self.mat_path, squeeze_me=True)['gt']
+
+        all_gt = []
+        for i in range(abnormal_events.shape[0]):
+            length = len(os.listdir(self.video_folders[i]))
+            sub_video_gt = np.zeros((length,), dtype=np.int8)
+
+            one_abnormal = abnormal_events[i]
+            if one_abnormal.ndim == 1:
+                one_abnormal = one_abnormal.reshape((one_abnormal.shape[0], -1))
+
+            for j in range(one_abnormal.shape[1]):
+                start = one_abnormal[0, j] - 1
+                end = one_abnormal[1, j]
+
+                sub_video_gt[start: end] = 1
+
+            all_gt.append(sub_video_gt)
+
+        return all_gt
+
+    def load_shanghaitech(self):
+        np_list = glob.glob(f'{self.cfg.data_root + self.name}/frame_masks/')
+        np_list.sort()
+
+        gt = []
+        for npy in np_list:
+            gt.append(np.load(npy))
+
+        return gt
