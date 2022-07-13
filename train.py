@@ -15,6 +15,7 @@ from pathlib import Path
 from config import update_config
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
+import torch.nn as nn
 
 from model.conv3D import conv3D
 from model.layer import aothead, mihead, mbphead, mdhead
@@ -115,6 +116,11 @@ aot_head = aot_head.train()
 mi_head = mi_head.train()
 mbp_head = mbp_head.train()
 md_head = md_head.train()
+
+aot_save = (-1, -1)
+mi_save = (-1, -1)
+mbp_save = (-1, -1)
+md_save = (-1, -1)
 
 try:
     step = start_iter
@@ -250,16 +256,15 @@ try:
                         for i, folder in enumerate(val_dataset):
                             val_data = Dataset.val_dataset(folder)
 
-                            for j, (clip, i_path) in val_data:
+                            for j, (clip, i_path) in enumerate(val_data):
                                 
-                                pred, val_yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=i_path, imgsz=clip.shape[2:4], conf_thres=conf_thres)
-
+                                pred, val_yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=i_path, imgsz=clip.shape[1:3], conf_thres=conf_thres)
                                 if pred == -1:
                                     continue
 
                                 val_input_crop = img_crop(clip, pred[0])
                                 val_input_crop = torch.from_numpy(np.array(val_input_crop))
-
+                                
                                 val_aot_input = val_input_crop.clone().detach()
                                 val_aot_shape = val_aot_input.shape
                                 val_aot_input = val_aot_input.reshape(val_aot_shape[0], -1, val_aot_shape[1], val_aot_shape[2], val_aot_shape[3]).cuda()
@@ -272,7 +277,7 @@ try:
                                 val_mbp_shape = val_mbp_input.shape
                                 val_mbp_input = val_mbp_input.reshape(val_mbp_shape[0], -1, val_mbp_shape[1], val_mbp_shape[2], val_mbp_shape[3]).cuda()
                                 val_mbp_target = val_input_crop[:, 3, :].clone().detach()
-                                val_mbp_target_shape =  mbp_target.shape
+                                val_mbp_target_shape =  val_mbp_target.shape
                                 val_mbp_target = val_mbp_target.reshape(val_mbp_target_shape[0], -1, val_mbp_target_shape[1], val_mbp_target_shape[2]).cuda()
 
                                 val_md_input = val_input_crop[:, 3, :].clone().detach().unsqueeze(dim=1)
@@ -289,8 +294,11 @@ try:
                                 val_mbp_shared = val_mbp_shared.squeeze(dim=2)
                                 val_md_shared = val_md_shared.squeeze(dim=2)
 
+                                softmax_loss = nn.Softmax(dim=1)
                                 val_aot_output = aot_head(val_aot_shared, train_cfg.depth)
+                                val_aot_output = softmax_loss(val_aot_output)
                                 val_mi_output = mi_head(val_mi_shared, train_cfg.depth)
+                                val_mi_output = softmax_loss(val_mi_output)
                                 val_mbp_output = mbp_head(val_mbp_shared, train_cfg.depth)
                                 val_md_output_res, val_md_output_yolo = md_head(val_md_shared, train_cfg.depth)
 
@@ -298,15 +306,60 @@ try:
                                 mi_score += torch.sum(val_mi_output[:, 1])
                                 mbp_score += mbp_loss(val_mbp_output, val_mbp_target)
                                 md_score += val_mdloss(val_md_output_yolo, val_yolo_cls_prob)
-                                print(aot_score, mi_score, mbp_score, md_score)
 
                     print(f"val | aot score: {aot_score:.3f} | mi score: {mi_score:.3f} | mbp score: {mbp_score:.3f} | md score: {md_score:.3f}")
+
+                    if aot_save[0] == -1:
+                        aot_save = (aot_score, step)
+                        print(f'Save aot model | save: {aot_save[0]} | score: {aot_score}')
+                    else:
+                        if aot_save[0] < aot_score:
+                            aot_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{aot_save[1]}.pth')['aot'])
+                            print(f'Load aot model from {aot_save[1]} step | save: {aot_save} | score: {aot_score}')
+                        else:
+                            aot_save = (aot_score, step)
+                            print(f'Save aot model | save: {aot_save[0]} | score: {aot_score}')
+
+                    if mi_save[0] == -1:
+                        mi_save = (mi_score, step)
+                        print(f'Save mi model | save: {mi_save[0]} | score: {mi_score}')
+                    else:
+                        if mi_save[0] < mi_score:
+                            mi_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{mi_save[1]}.pth')['mi'])
+                            print(f'Load mi model from {mi_save[1]} step | save: {mi_save} | score: {mi_score}')
+                        else:
+                            mi_save = (mi_score, step)
+                            print(f'Save mi model | save: {mi_save[0]} | score: {mi_score}')
+
+                    if mbp_save[0] == -1:
+                        mbp_save = (mbp_score, step)
+                        print(f'Save mbp model | save: {mbp_save[0]} | score: {mbp_score}')
+                    else:
+                        if mbp_save[0] < mbp_score:
+                            mbp_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{mbp_save[1]}.pth')['mbp'])
+                            print(f'Load mbp model from {mbp_save[1]} step | save: {mbp_save} | score: {mbp_score}')
+                        else:
+                            mbp_save = (mbp_score, step)
+                            print(f'Save mbp model | save: {mbp_save[0]} | score: {mbp_score}')
+
+                    if md_save[0] == -1:
+                        md_save = (md_score, step)
+                        print(f'Save md model | save: {md_save[0]} | score: {md_score}')
+                    else:
+                        if md_save[0] < md_score:
+                            md_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{md_save[1]}.pth')['md'])
+                            print(f'Load md model from {md_save[1]} step | save: {md_save} | score: {md_score}')
+                        else:
+                            md_save = (md_score, step)
+                            print(f'Save md model | save: {md_save[0]} | score: {md_score}')
+                    
 
                     shared_conv.train()
                     aot_head.train()
                     mi_head.train()
                     mbp_head.train()
                     md_head.train()
+                    print('')
 
             step += 1
             if step > train_cfg.iters:
@@ -322,6 +375,7 @@ try:
                                 'opt_mbp': optimizer_mbp.state_dict(),
                                 'opt_md': optimizer_md.state_dict()}
                 torch.save(model_dict, f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{step}.pth')
+                break
 
 except KeyboardInterrupt:
     print(f'\nStop early, model saved: \'latest_{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{step}.pth\'.\n')
