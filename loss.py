@@ -52,7 +52,7 @@ class valmdloss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(md_yolo, target_yolo):
+    def forward(self, md_yolo, target_yolo):
         softmax = nn.Softmax(dim=1)
         loss = nn.L1Loss(reduction='mean')
         md_yolo = softmax(md_yolo)
