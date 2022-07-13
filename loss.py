@@ -48,7 +48,7 @@ class mdloss(nn.Module):
         return loss(md_merged_output, target_merged)
 
 
-class val_mdloss(nn.Module):
+class valmdloss(nn.Module):
     def __init__(self):
         super().__init__()
 
