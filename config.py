@@ -47,6 +47,7 @@ def update_config(args=None, mode=None):
     elif mode == 'test':
         share_config['test_data'] = share_config['data_root'] + args.dataset + '/testing/'
         share_config['trained_model'] = args.trained_model
+        share_config['level'] = args.level
         share_config['width'] = share_config['trained_model'].split('_')[1]
         share_config['depth'] = share_config['trained_model'].split('_')[2]
 
