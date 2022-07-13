@@ -31,12 +31,13 @@ def img_crop(clips, pred):
             crop_flow_img.append(crop_flow)
         crop_img.append(crop_flow_img)
     return crop_img
-
+    
 
 def res_prob(model, preprocess, input_img):
     cls_prob = []
     for img in input_img:
         img_pre = preprocess(img).unsqueeze(0)
-        pred = model(img_pre).squeeze(0)
+        pred = model(img_pre)
         cls_prob.append(pred)
+    cls_prob = torch.cat(cls_prob, 0)
     return cls_prob
