@@ -311,47 +311,47 @@ try:
 
                     if aot_save[0] == -1:
                         aot_save = (aot_score, step)
-                        print(f'Save aot model | save: {aot_save[0]} | score: {aot_score}')
+                        print(f'Save aot model | score: {aot_score}')
                     else:
                         if aot_save[0] < aot_score:
                             aot_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{aot_save[1]}.pth')['aot'])
                             print(f'Load aot model from {aot_save[1]} step | save: {aot_save} | score: {aot_score}')
                         else:
-                            aot_save = (aot_score, step)
                             print(f'Save aot model | save: {aot_save[0]} | score: {aot_score}')
+                            aot_save = (aot_score, step)
 
                     if mi_save[0] == -1:
                         mi_save = (mi_score, step)
-                        print(f'Save mi model | save: {mi_save[0]} | score: {mi_score}')
+                        print(f'Save mi model | score: {mi_score}')
                     else:
                         if mi_save[0] < mi_score:
                             mi_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{mi_save[1]}.pth')['mi'])
                             print(f'Load mi model from {mi_save[1]} step | save: {mi_save} | score: {mi_score}')
                         else:
-                            mi_save = (mi_score, step)
                             print(f'Save mi model | save: {mi_save[0]} | score: {mi_score}')
+                            mi_save = (mi_score, step)
 
                     if mbp_save[0] == -1:
                         mbp_save = (mbp_score, step)
-                        print(f'Save mbp model | save: {mbp_save[0]} | score: {mbp_score}')
+                        print(f'Save mbp model | score: {mbp_score}')
                     else:
                         if mbp_save[0] < mbp_score:
                             mbp_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{mbp_save[1]}.pth')['mbp'])
                             print(f'Load mbp model from {mbp_save[1]} step | save: {mbp_save} | score: {mbp_score}')
                         else:
-                            mbp_save = (mbp_score, step)
                             print(f'Save mbp model | save: {mbp_save[0]} | score: {mbp_score}')
+                            mbp_save = (mbp_score, step)
 
                     if md_save[0] == -1:
                         md_save = (md_score, step)
-                        print(f'Save md model | save: {md_save[0]} | score: {md_score}')
+                        print(f'Save md model | score: {md_score}')
                     else:
                         if md_save[0] < md_score:
                             md_head.load_state_dict(torch.load(f'weights/{train_cfg.dataset}_{train_cfg.width}_{train_cfg.depth}_{md_save[1]}.pth')['md'])
                             print(f'Load md model from {md_save[1]} step | save: {md_save} | score: {md_score}')
                         else:
-                            md_save = (md_score, step)
                             print(f'Save md model | save: {md_save[0]} | score: {md_score}')
+                            md_save = (md_score, step)
                     
 
                     shared_conv.train()
