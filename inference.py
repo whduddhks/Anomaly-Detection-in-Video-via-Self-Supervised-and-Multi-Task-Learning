@@ -3,8 +3,10 @@ import os
 import torch
 from pathlib import Path
 import sys
+from sklearn import metrics
 
 import Dataset
+from Dataset import Label_loader
 from conv_utils import *
 from config import update_config
 from model.conv3D import conv3D
@@ -22,6 +24,7 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))
 parser = argparse.ArgumentParser(description='Anomaly Prediction')
 parser.add_argument('--dataset', default='avenue', type=str, help='The name of the dataset to train.')
 parser.add_argument('--trained_model', default=None, type=str, help='The pre-trained model to evaluate.')
+parser.add_argument('--level', default='object', type=str, help='Determine level of the Input')
 
 
 def inference(cfg):
@@ -40,6 +43,9 @@ def inference(cfg):
     mbp_loss = mbploss().cuda()
     val_mdloss = valmdloss().cuda()
 
+    if cfg.level == 'object':
+        conf_thres = 0.5 if cfg.dataset == 'ped2' else 0.8
+
     video_folders = os.listdir(cfg.test_data)
     video_folders.sort()
     video_folders = [os.path.join(cfg.test_data, aa) for aa in video_folders]
@@ -54,8 +60,9 @@ def inference(cfg):
 
             for j, (clips, i_path) in enumerate(dataset):
 
-                pred, val_yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=i_path, imgsz=clips.shape[2:4], conf_thres=conf_thres)
+                pred, val_yolo_cls_prob = run(weights=ROOT / 'yolov3/yolov3.pt', source=i_path, imgsz=clips.shape[1:3], conf_thres=conf_thres)
                 if pred == -1:
+                    print(pred)
                     continue
 
                 val_input_crop = img_crop(clips, pred[0])
@@ -108,6 +115,23 @@ def inference(cfg):
     
     print('\nAll frames were detected, begin to compute AUC.')
 
+    gt_loader = Label_loader(cfg, video_folders)  # Get gt labels.
+    gt = gt_loader()
+
+    assert len(anomaly_score) == len(gt), f'Ground truth has {len(gt)} videos, but got {len(anomaly_score)} detected videos.'
+
+    scores = np.array([], dtype=np.float32)
+    labels = np.array([], dtype=np.int8)
+    for i in range(len(anomaly_score)):
+        scores = np.concatenate((scores, anomaly_score[i]), axis=0)
+        labels = np.concatenate((labels, gt[i][3:-3]), axis=0)
+    
+    assert scores.shape == labels.shape, f'Ground truth has {labels.shape[0]} frames, but got {scores.shape[0]} detected frames.'
+
+    fpr, tpr, thresholds = metrics.roc_curve(labels, scores, pos_label=0)
+    auc = metrics.auc(fpr, tpr)
+    print(f'AUC: {auc}\n')
+    return auc
 
 
 if __name__ == '__main__':
